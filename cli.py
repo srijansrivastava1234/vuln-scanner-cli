@@ -181,13 +181,43 @@ def render_terminal(results: dict):
         console.print("[dim]No cookies were set by target response.[/dim]\n")
 
 
-def main():
+GRADE_RANKS = {"A+": 5, "A": 4, "B": 3, "C": 2, "F": 1, "N/A": 0}
+
+
+def determine_exit_code(results: dict, fail_grade: str | None = None) -> int:
+    """
+    Computes CLI exit code:
+    - 0: Passed audit requirements.
+    - 1: Audit grade fell below or matched the failure threshold.
+    - 2: Network, DNS, or operational failure (UNREACHABLE / ERROR / HTTP_FAILED).
+    """
+    assessment = results.get("assessment", {})
+    status = assessment.get("status")
+
+    if status in ("UNREACHABLE", "ERROR", "HTTP_FAILED"):
+        return 2
+
+    if fail_grade:
+        actual_grade = assessment.get("grade", "N/A")
+        if GRADE_RANKS.get(actual_grade, 0) <= GRADE_RANKS.get(fail_grade.upper(), 0):
+            return 1
+
+    return 0
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Automated Web Security & Vulnerability Header Scanner")
     parser.add_argument("target", help="Target URL or domain (e.g. google.com, https://example.com)")
     parser.add_argument("--json", dest="json_output", help="Path to write JSON results", default=None)
     parser.add_argument("--timeout", type=int, default=10, help="Socket and HTTP timeout in seconds (default: 10)")
+    parser.add_argument(
+        "--fail-grade",
+        choices=["A+", "A", "B", "C", "F"],
+        default=None,
+        help="Exit with code 1 if the security grade is at or below this threshold (useful for CI/CD gates)",
+    )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     results = scan_target(args.target, timeout=args.timeout)
 
@@ -198,6 +228,9 @@ def main():
     else:
         render_terminal(results)
 
+    return determine_exit_code(results, fail_grade=args.fail_grade)
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
+

@@ -55,6 +55,21 @@ python cli.py expired.badssl.com
 python cli.py github.com --json report.json
 ```
 
+### CI/CD Security Gate with Policy Threshold
+Break the pipeline (exit code `1`) if the target fails security policy:
+```bash
+# Fail if grade is F:
+python cli.py yoursite.com --fail-grade F
+
+# Strict mode (fail if grade is C or worse):
+python cli.py yoursite.com --fail-grade C
+```
+
+**Exit Codes:**
+- `0`: Scan passed and met security grade threshold.
+- `1`: Security posture fell below threshold policy (`--fail-grade`).
+- `2`: Target unreachable or operational connection error.
+
 ---
 
 ## Testing
